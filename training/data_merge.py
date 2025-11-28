@@ -53,37 +53,40 @@ def load_fakehealth():
     return pd.DataFrame({"text": text_list, "label": label_list})
 
 
-def load_kinit():
-    kinit_dir = os.path.join(DATASETS_DIR, "KINIT/sample_data")
-
+def load_kinit(kinit_dir):
     claims_path = os.path.join(kinit_dir, "claims.csv")
     articles_path = os.path.join(kinit_dir, "articles.csv")
-    fact_path = os.path.join(kinit_dir, "fact_checking_articles.csv")
+    fc_articles_path = os.path.join(kinit_dir, "fact_checking_articles.csv")
 
-    dfs = []
+    # Load CSVs
+    claims = pd.read_csv(claims_path)
+    articles = pd.read_csv(articles_path)
+    fc_articles = pd.read_csv(fc_articles_path)
 
-    if os.path.exists(claims_path):
-        claims = pd.read_csv(claims_path)
-        claims = claims.rename(columns={"claim_text": "text"})
-        claims["label"] = claims.get("label", 1)
-        dfs.append(claims[["text", "label"]])
+    # Merge claims with article text
+    merged = claims.merge(articles, on="article_id", how="left")
 
-    if os.path.exists(articles_path):
-        articles = pd.read_csv(articles_path)
-        articles = articles.rename(columns={"content": "text"})
-        articles["label"] = 1
-        dfs.append(articles[["text", "label"]])
+    # Merge fact-checking labels (TRUE/FALSE)
+    merged = merged.merge(fc_articles[["claim_id", "verdict"]], on="claim_id", how="left")
 
-    if os.path.exists(fact_path):
-        facts = pd.read_csv(fact_path)
-        facts = facts.rename(columns={"content": "text"})
-        facts["label"] = 0
-        dfs.append(facts[["text", "label"]])
+    # Map verdict to binary labels
+    label_map = {
+        "TRUE": 1,
+        "PARTLY_TRUE": 1,
+        "FALSE": 0,
+        "UNSUPPORTED": 0,
+        "MISLEADING": 0
+    }
 
-    if dfs:
-        return pd.concat(dfs, ignore_index=True)
+    merged["label"] = merged["verdict"].map(label_map)
 
-    return pd.DataFrame(columns=["text", "label"])
+    # Use article text + claim text combined
+    merged["text"] = merged["claim"] + " | " + merged["article_text"]
+
+    # Drop empty rows
+    merged = merged[["text", "label"]].dropna()
+
+    return merged
 
 
 def main():
