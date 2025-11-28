@@ -1,36 +1,35 @@
 import pandas as pd
 import re
-import os
-
-INPUT_PATH = "../datasets/merged_health_dataset.csv"
-OUTPUT_PATH = "../datasets/cleaned_health_dataset.csv"
 
 def clean_text(text):
-    if not isinstance(text, str):
-        return ""
-
     text = text.lower()
-    text = re.sub(r"http\S+|www\S+|https\S+", "", text)
-    text = re.sub(r"<.*?>", "", text)
-    text = re.sub(r"[^a-zA-Z0-9\s]", " ", text)
+    text = re.sub(r"http\S+", " ", text)
+    text = re.sub(r"\S+@\S+", " ", text)
+    text = re.sub(r"\d+", " ", text)
+    text = re.sub(r"[^\w\s]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
-
     return text
 
 
 def main():
-    if not os.path.exists(INPUT_PATH):
-        raise FileNotFoundError("Merged dataset not found.")
+    df = pd.read_csv("../datasets/merged_health_dataset.csv")
+    
+    # Clean text
+    df["text"] = df["text"].astype(str).apply(clean_text)
 
-    df = pd.read_csv(INPUT_PATH)
+    
+    # Remove extremely short samples (hurts accuracy)
+    df = df[df["text"].str.len() > 60]
+    print("Removed samples shorter than 60 characters.")
+  
 
-    df["text"] = df["text"].apply(clean_text)
+    # Drop duplicate rows
+    df = df.drop_duplicates(subset=["text"])
 
-    df = df[df["text"].str.len() > 10]
+    # Reset index
+    df = df.reset_index(drop=True)
 
-    df.to_csv(OUTPUT_PATH, index=False)
-
-    print("Cleaning complete. Saved:", OUTPUT_PATH)
+    df.to_csv("../datasets/cleaned_health_dataset.csv", index=False)
     print("Final shape:", df.shape)
 
 
