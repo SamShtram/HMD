@@ -4,13 +4,14 @@ import pandas as pd
 
 BASE = "../datasets"
 
+
 def load_scifact(scifact_dir):
     """
-    Loads SciFact claims from claims_train/dev/test.jsonl.
-    Normalizes labels:
-        SUPPORTED -> 0 (real)
-        REFUTED -> 1 (misinformation)
-        NOINFO -> dropped
+    Loads SciFact claims and extracts labels from nested evidence.
+    Rules:
+        SUPPORT -> 0 (real)
+        CONTRADICT -> 1 (misinformation)
+        NOT_ENOUGH_INFO or empty -> dropped
     """
     rows = []
     files = ["claims_train.jsonl", "claims_dev.jsonl", "claims_test.jsonl"]
@@ -24,17 +25,29 @@ def load_scifact(scifact_dir):
             for line in f:
                 item = json.loads(line)
                 claim = item.get("claim", "").strip()
-                label = item.get("label", "")
+                evidence = item.get("evidence", {})
 
-                if label == "SUPPORTED":
-                    y = 0
-                elif label == "REFUTED":
-                    y = 1
-                else:
+                if len(claim) == 0:
                     continue
 
-                if len(claim) > 0:
-                    rows.append({"text": claim, "label": y})
+                label_found = None
+
+                # Extract labels from nested evidence structure
+                for evid_list in evidence.values():
+                    for evid in evid_list:
+                        lbl = evid.get("label", "")
+                        if lbl == "SUPPORT":
+                            label_found = 0
+                        elif lbl == "CONTRADICT":
+                            label_found = 1
+
+                if label_found is None:
+                    continue
+
+                rows.append({
+                    "text": claim,
+                    "label": label_found
+                })
 
     df = pd.DataFrame(rows)
     print("Loaded SciFact:", df.shape)
@@ -43,8 +56,8 @@ def load_scifact(scifact_dir):
 
 def load_fakehealth_reviews(path):
     """
-    Loads review JSON containing rating values.
-    Returns a dict mapping url/canonical_url to numeric rating.
+    Loads FakeHealth review JSON containing rating values.
+    Returns a dictionary mapping url or canonical url to rating.
     """
     if not os.path.exists(path):
         return {}
@@ -62,6 +75,7 @@ def load_fakehealth_reviews(path):
         if rating is None:
             continue
 
+        # Map both keys to allow flexible matching
         key_candidates = [source_link, link]
         for key in key_candidates:
             if key is not None and len(key) > 0:
@@ -72,8 +86,8 @@ def load_fakehealth_reviews(path):
 
 def load_fakehealth_articles(folder_path, review_ratings):
     """
-    Loads FakeHealth article JSON files and merges them with review ratings.
-    Matches canonical_link or url against review source_link/link.
+    Loads FakeHealth articles and matches them to ratings using
+    canonical_link or url.
     """
     rows = []
 
@@ -99,6 +113,7 @@ def load_fakehealth_articles(folder_path, review_ratings):
 
         rating = None
 
+        # Try to match the article to a rating
         if canonical in review_ratings:
             rating = review_ratings[canonical]
         elif url in review_ratings:
@@ -106,6 +121,7 @@ def load_fakehealth_articles(folder_path, review_ratings):
         else:
             continue
 
+        # Normalize ratings: 0/1 real, 2/3 misinformation, -1 ignore
         if rating in [-1, None]:
             continue
         elif rating in [0, 1]:
@@ -123,25 +139,32 @@ def load_fakehealth_articles(folder_path, review_ratings):
 
 
 def main():
+    print("=== Merging SciFact + FakeHealth Datasets ===")
+
+    # SciFact directory
     scifact_dir = os.path.join(BASE, "SciFact")
 
+    # FakeHealth review JSONs
     reviews_release_path = os.path.join(BASE, "FakeHealth", "reviews", "HealthRelease.json")
     reviews_story_path = os.path.join(BASE, "FakeHealth", "reviews", "HealthStory.json")
 
     release_ratings = load_fakehealth_reviews(reviews_release_path)
     story_ratings = load_fakehealth_reviews(reviews_story_path)
 
+    # FakeHealth article directories
     release_articles_path = os.path.join(BASE, "FakeHealth", "content", "HealthRelease")
     story_articles_path = os.path.join(BASE, "FakeHealth", "content", "HealthStory")
 
+    # Load datasets
     df_scifact = load_scifact(scifact_dir)
-
     df_release = load_fakehealth_articles(release_articles_path, release_ratings)
     df_story = load_fakehealth_articles(story_articles_path, story_ratings)
 
+    # Merge all datasets
     merged = pd.concat([df_scifact, df_release, df_story], ignore_index=True)
     print("Final merged dataset shape:", merged.shape)
 
+    # Save result
     out_path = os.path.join(BASE, "merged_health_dataset.csv")
     merged.to_csv(out_path, index=False)
 
