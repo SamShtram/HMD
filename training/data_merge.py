@@ -4,126 +4,119 @@ import pandas as pd
 
 DATASETS_DIR = "../datasets"
 
-def load_scifact():
-    scifact_path = os.path.join(DATASETS_DIR, "SciFact/claims_train.jsonl")
-    if not os.path.exists(scifact_path):
-        return pd.DataFrame(columns=["text", "label"])
+
+
+# FAKEHEALTH LOADER
+
+def load_fakehealth(folder):
+    health_release = os.path.join(folder, "content", "HealthRelease")
+    health_story = os.path.join(folder, "content", "HealthStory")
 
     rows = []
-    with open(scifact_path, "r", encoding="utf-8") as f:
+
+    def load_folder(path):
+        for fname in os.listdir(path):
+            if fname.endswith(".json"):
+                fpath = os.path.join(path, fname)
+                try:
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    text = data.get("text", "")
+                    label = 1 if data.get("rating", 0) >= 3 else 0
+                    rows.append([text, label])
+                except:
+                    continue
+
+    if os.path.exists(health_release):
+        load_folder(health_release)
+    if os.path.exists(health_story):
+        load_folder(health_story)
+
+    return pd.DataFrame(rows, columns=["text", "label"])
+
+
+
+# SCIFACT LOADER
+
+def load_scifact(scifact_dir):
+    claims_train = os.path.join(scifact_dir, "claims_train.jsonl")
+    claims_dev = os.path.join(scifact_dir, "claims_dev.jsonl")
+
+    rows = []
+
+    # choose whichever exists
+    path = claims_train if os.path.exists(claims_train) else claims_dev
+    if not os.path.exists(path):
+        print("SciFact not found.")
+        return pd.DataFrame(columns=["text", "label"])
+
+    with open(path, "r", encoding="utf-8") as f:
         for line in f:
-            obj = json.loads(line)
-            text = obj.get("claim", "")
-            label = 0
-            if obj.get("evidence"):
-                label = 1
-            rows.append({"text": text, "label": label})
+            item = json.loads(line)
+            text = item.get("claim", "")
+            cited = item.get("cited_doc_ids", [])
+            label = 1 if len(cited) > 0 else 0
+            rows.append([text, label])
 
-    df = pd.DataFrame(rows)
-    return df
+    return pd.DataFrame(rows, columns=["text", "label"])
 
 
-def load_fakehealth():
-    base = os.path.join(DATASETS_DIR, "FakeHealth/content")
 
-    text_list = []
-    label_list = []
-
-    folders = ["HealthRelease", "HealthStory"]
-
-    for folder in folders:
-        folder_path = os.path.join(base, folder)
-        if not os.path.isdir(folder_path):
-            continue
-
-        for file in os.listdir(folder_path):
-            if not file.endswith(".json"):
-                continue
-
-            full_path = os.path.join(folder_path, file)
-            with open(full_path, "r", encoding="utf-8") as f:
-                obj = json.load(f)
-
-            text = obj.get("text", "")
-            label = 1 if obj.get("rating", 0) < 3 else 0
-
-            text_list.append(text)
-            label_list.append(label)
-
-    return pd.DataFrame({"text": text_list, "label": label_list})
-
+# KINIT LOADER (medical misinformation CSV dataset)
 
 def load_kinit(kinit_dir):
     claims_path = os.path.join(kinit_dir, "claims.csv")
-    articles_path = os.path.join(kinit_dir, "articles.csv")
-    fc_articles_path = os.path.join(kinit_dir, "fact_checking_articles.csv")
+    fc_path = os.path.join(kinit_dir, "fact_checking_articles.csv")
 
-    # Load CSVs
-    claims = pd.read_csv(claims_path)
-    articles = pd.read_csv(articles_path)
-    fc_articles = pd.read_csv(fc_articles_path)
+    if not os.path.exists(claims_path):
+        print("KINIT not found.")
+        return pd.DataFrame(columns=["text", "label"])
 
-    # Merge claims with article text
-    merged = claims.merge(articles, on="article_id", how="left")
+    df_claims = pd.read_csv(claims_path)
+    df_fc = pd.read_csv(fc_path) if os.path.exists(fc_path) else pd.DataFrame(columns=["id"])
 
-    # Merge fact-checking labels (TRUE/FALSE)
-    merged = merged.merge(fc_articles[["claim_id", "verdict"]], on="claim_id", how="left")
+    # text source: claim body
+    df_claims["text"] = df_claims["claim"]
+    df_claims["label"] = df_claims["verified"].apply(lambda x: 1 if x == "true" else 0)
 
-    # Map verdict to binary labels
-    label_map = {
-        "TRUE": 1,
-        "PARTLY_TRUE": 1,
-        "FALSE": 0,
-        "UNSUPPORTED": 0,
-        "MISLEADING": 0
-    }
+    # optional fact-checking articles may override labels (not required)
+    merged = df_claims[["text", "label"]]
 
-    merged["label"] = merged["verdict"].map(label_map)
+    return merged.dropna()
 
-    # Use article text + claim text combined
-    merged["text"] = merged["claim"] + " | " + merged["article_text"]
 
-    # Drop empty rows
-    merged = merged[["text", "label"]].dropna()
 
-    return merged
-
+# MAIN MERGE PIPELINE
 
 def main():
-    print("\n=== Merging SciFact + FakeHealth + KINIT ===")
+    print("\n=== Merging SciFact + FakeHealth + KINIT ===\n")
 
-    # Paths
-    fakehealth_dir = os.path.join(DATASETS_DIR, "FakeHealth/content")
-    healthrelease_dir = os.path.join(fakehealth_dir, "HealthRelease")
-    healthstory_dir = os.path.join(fakehealth_dir, "HealthStory")
+    # ----- FAKEHEALTH -----
+    fakehealth_dir = os.path.join(DATASETS_DIR, "FakeHealth")
+    fakehealth = load_fakehealth(fakehealth_dir)
+    print(f"FakeHealth: {fakehealth.shape}")
 
+    # ----- SCIFACT -----
     scifact_dir = os.path.join(DATASETS_DIR, "SciFact")
-
-    # IMPORTANT: your folder is named KinitData
-    kinit_dir = os.path.join(DATASETS_DIR, "KinitData")
-
-    # Load datasets
     scifact = load_scifact(scifact_dir)
     print(f"SciFact: {scifact.shape}")
 
-    fake_hr = load_fakehealth_folder(healthrelease_dir)
-    fake_hs = load_fakehealth_folder(healthstory_dir)
-    fake = pd.concat([fake_hr, fake_hs], ignore_index=True)
-    print(f"FakeHealth: {fake.shape}")
-
-    # Load KINIT (new data source)
+    # ----- KINIT -----
+    kinit_dir = os.path.join(DATASETS_DIR, "KinitData")
     kinit = load_kinit(kinit_dir)
     print(f"KINIT: {kinit.shape}")
 
-    # Merge all datasets together
-    full_df = pd.concat([scifact, fake, kinit], ignore_index=True)
-    print(f"\nFinal merged dataset shape: {full_df.shape}")
+    # merge
+    merged = pd.concat([fakehealth, scifact, kinit], ignore_index=True)
 
-    # Save final CSV
-    output_path = os.path.join(DATASETS_DIR, "merged_final_dataset.csv")
-    full_df.to_csv(output_path, index=False)
-    print(f"Final merged dataset saved to: {output_path}")
+    # shuffle
+    merged = merged.sample(frac=1, random_state=42).reset_index(drop=True)
 
+    out_path = os.path.join(DATASETS_DIR, "merged_final_dataset.csv")
+    merged.to_csv(out_path, index=False)
+
+    print(f"\nFinal merged dataset saved to: {out_path}")
+    print(f"Shape: {merged.shape}")
 
 
 if __name__ == "__main__":
