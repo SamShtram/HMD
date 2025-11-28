@@ -1,84 +1,87 @@
 import pandas as pd
 import torch
-from torch.utils.data import DataLoader
-from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification, Trainer, TrainingArguments
+from transformers import (
+    DistilBertTokenizerFast,
+    DistilBertForSequenceClassification,
+    TrainingArguments,
+    Trainer
+)
+from datasets import Dataset
 
-DATA_PATH = "../datasets/cleaned_health_dataset.csv"
-MODEL_OUT = "../models/distilbert_health_model"
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print("Using device:", device)
 
-def load_data():
-    df = pd.read_csv(DATA_PATH)
-    df = df.sample(frac=1).reset_index(drop=True)  # Shuffle
-    return df
+# Load cleaned dataset
+df = pd.read_csv("../datasets/cleaned_health_dataset.csv")
 
-class HealthDataset(torch.utils.data.Dataset):
-    def __init__(self, texts, labels, tokenizer, max_len=256):
-        self.texts = texts
-        self.labels = labels
-        self.tokenizer = tokenizer
-        self.max_len = max_len
+# HF datasets require column name 'label'
+df = df.rename(columns={"label": "labels"})
 
-    def __len__(self):
-        return len(self.texts)
+# Convert to HF Dataset
+dataset = Dataset.from_pandas(df)
 
-    def __getitem__(self, idx):
-        encoding = self.tokenizer(
-            self.texts[idx],
-            truncation=True,
-            padding="max_length",
-            max_length=self.max_len,
-            return_tensors="pt"
-        )
-        return {
-            "input_ids": encoding["input_ids"].flatten(),
-            "attention_mask": encoding["attention_mask"].flatten(),
-            "labels": torch.tensor(self.labels[idx], dtype=torch.long)
-        }
+# Train / test split
+dataset = dataset.train_test_split(test_size=0.15)
+train_ds = dataset["train"]
+test_ds = dataset["test"]
 
-def main():
-    df = load_data()
+# Load tokenizer
+tokenizer = DistilBertTokenizerFast.from_pretrained("distilbert-base-uncased")
 
-    split = int(len(df) * 0.8)
-    train_df = df[:split]
-    test_df = df[split:]
-
-    tokenizer = DistilBertTokenizerFast.from_pretrained("distilbert-base-uncased")
-
-    train_dataset = HealthDataset(train_df["text"].tolist(), train_df["label"].tolist(), tokenizer)
-    test_dataset = HealthDataset(test_df["text"].tolist(), test_df["label"].tolist(), tokenizer)
-
-    model = DistilBertForSequenceClassification.from_pretrained(
-        "distilbert-base-uncased",
-        num_labels=2
+def tokenize(batch):
+    return tokenizer(
+        batch["text"],
+        truncation=True,
+        padding="max_length",
+        max_length=256
     )
 
-    training_args = TrainingArguments(
-        output_dir="./bert_output",
-        evaluation_strategy="epoch",
-        save_strategy="epoch",
-        learning_rate=3e-5,
-        per_device_train_batch_size=8,
-        per_device_eval_batch_size=8,
-        num_train_epochs=3,
-        weight_decay=0.01,
-        logging_steps=50,
-        load_best_model_at_end=True
-    )
+train_ds = train_ds.map(tokenize, batched=True)
+test_ds = test_ds.map(tokenize, batched=True)
 
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=test_dataset
-    )
+# Set format for PyTorch
+train_ds.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+test_ds.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
 
-    trainer.train()
-    trainer.evaluate()
+# Load model
+model = DistilBertForSequenceClassification.from_pretrained(
+    "distilbert-base-uncased",
+    num_labels=2
+).to(device)
 
-    model.save_pretrained(MODEL_OUT)
-    tokenizer.save_pretrained(MODEL_OUT)
+# Training args compatible with current Transformers
+training_args = TrainingArguments(
+    output_dir="./distilbert_output",
+    evaluation_strategy="epoch",
+    save_strategy="epoch",
+    logging_strategy="steps",
+    logging_steps=50,
 
-    print(f"DistilBERT model saved to: {MODEL_OUT}")
+    per_device_train_batch_size=8,
+    per_device_eval_batch_size=8,
 
-if __name__ == "__main__":
-    main()
+    num_train_epochs=3,
+    warmup_steps=100,
+    weight_decay=0.01,
+
+    load_best_model_at_end=True,
+
+    fp16=True,   # Mixed precision (only works on GPU)
+)
+
+# Trainer
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=train_ds,
+    eval_dataset=test_ds,
+)
+
+trainer.train()
+
+# Save model + tokenizer
+save_dir = "./model/distilbert"
+trainer.model.save_pretrained(save_dir)
+tokenizer.save_pretrained(save_dir)
+
+print("\nTraining complete. Model saved to:", save_dir)
