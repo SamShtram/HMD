@@ -2,173 +2,109 @@ import os
 import json
 import pandas as pd
 
-BASE = "../datasets"
+DATASETS_DIR = "../datasets"
 
+def load_scifact():
+    scifact_path = os.path.join(DATASETS_DIR, "SciFact/claims_train.jsonl")
+    if not os.path.exists(scifact_path):
+        return pd.DataFrame(columns=["text", "label"])
 
-def load_scifact(scifact_dir):
-    """
-    Loads SciFact claims and extracts labels from nested evidence.
-    Rules:
-        SUPPORT -> 0 (real)
-        CONTRADICT -> 1 (misinformation)
-        NOT_ENOUGH_INFO or empty -> dropped
-    """
     rows = []
-    files = ["claims_train.jsonl", "claims_dev.jsonl", "claims_test.jsonl"]
-
-    for file in files:
-        path = os.path.join(scifact_dir, file)
-        if not os.path.exists(path):
-            continue
-
-        with open(path, "r", encoding="utf-8") as f:
-            for line in f:
-                item = json.loads(line)
-                claim = item.get("claim", "").strip()
-                evidence = item.get("evidence", {})
-
-                if len(claim) == 0:
-                    continue
-
-                label_found = None
-
-                # Extract labels from nested evidence structure
-                for evid_list in evidence.values():
-                    for evid in evid_list:
-                        lbl = evid.get("label", "")
-                        if lbl == "SUPPORT":
-                            label_found = 0
-                        elif lbl == "CONTRADICT":
-                            label_found = 1
-
-                if label_found is None:
-                    continue
-
-                rows.append({
-                    "text": claim,
-                    "label": label_found
-                })
+    with open(scifact_path, "r", encoding="utf-8") as f:
+        for line in f:
+            obj = json.loads(line)
+            text = obj.get("claim", "")
+            label = 0
+            if obj.get("evidence"):
+                label = 1
+            rows.append({"text": text, "label": label})
 
     df = pd.DataFrame(rows)
-    print("Loaded SciFact:", df.shape)
     return df
 
 
-def load_fakehealth_reviews(path):
-    """
-    Loads FakeHealth review JSON containing rating values.
-    Returns a dictionary mapping url or canonical url to rating.
-    """
-    if not os.path.exists(path):
-        return {}
+def load_fakehealth():
+    base = os.path.join(DATASETS_DIR, "FakeHealth/content")
 
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    text_list = []
+    label_list = []
 
-    ratings = {}
+    folders = ["HealthRelease", "HealthStory"]
 
-    for entry in data:
-        source_link = entry.get("source_link", "").strip()
-        link = entry.get("link", "").strip()
-        rating = entry.get("rating", None)
-
-        if rating is None:
+    for folder in folders:
+        folder_path = os.path.join(base, folder)
+        if not os.path.isdir(folder_path):
             continue
 
-        # Map both keys to allow flexible matching
-        key_candidates = [source_link, link]
-        for key in key_candidates:
-            if key is not None and len(key) > 0:
-                ratings[key] = rating
+        for file in os.listdir(folder_path):
+            if not file.endswith(".json"):
+                continue
 
-    return ratings
+            full_path = os.path.join(folder_path, file)
+            with open(full_path, "r", encoding="utf-8") as f:
+                obj = json.load(f)
+
+            text = obj.get("text", "")
+            label = 1 if obj.get("rating", 0) < 3 else 0
+
+            text_list.append(text)
+            label_list.append(label)
+
+    return pd.DataFrame({"text": text_list, "label": label_list})
 
 
-def load_fakehealth_articles(folder_path, review_ratings):
-    """
-    Loads FakeHealth articles and matches them to ratings using
-    canonical_link or url.
-    """
-    rows = []
+def load_kinit():
+    kinit_dir = os.path.join(DATASETS_DIR, "KINIT/sample_data")
 
-    for file in os.listdir(folder_path):
-        if not file.endswith(".json"):
-            continue
+    claims_path = os.path.join(kinit_dir, "claims.csv")
+    articles_path = os.path.join(kinit_dir, "articles.csv")
+    fact_path = os.path.join(kinit_dir, "fact_checking_articles.csv")
 
-        fp = os.path.join(folder_path, file)
+    dfs = []
 
-        with open(fp, "r", encoding="utf-8") as f:
-            doc = json.load(f)
+    if os.path.exists(claims_path):
+        claims = pd.read_csv(claims_path)
+        claims = claims.rename(columns={"claim_text": "text"})
+        claims["label"] = claims.get("label", 1)
+        dfs.append(claims[["text", "label"]])
 
-        text = doc.get("text", "")
-        if isinstance(text, list):
-            text = " ".join(text)
-        text = text.strip()
+    if os.path.exists(articles_path):
+        articles = pd.read_csv(articles_path)
+        articles = articles.rename(columns={"content": "text"})
+        articles["label"] = 1
+        dfs.append(articles[["text", "label"]])
 
-        if len(text) == 0:
-            continue
+    if os.path.exists(fact_path):
+        facts = pd.read_csv(fact_path)
+        facts = facts.rename(columns={"content": "text"})
+        facts["label"] = 0
+        dfs.append(facts[["text", "label"]])
 
-        url = doc.get("url", "").strip()
-        canonical = doc.get("canonical_link", "").strip()
+    if dfs:
+        return pd.concat(dfs, ignore_index=True)
 
-        rating = None
-
-        # Try to match the article to a rating
-        if canonical in review_ratings:
-            rating = review_ratings[canonical]
-        elif url in review_ratings:
-            rating = review_ratings[url]
-        else:
-            continue
-
-        # Normalize ratings: 0/1 real, 2/3 misinformation, -1 ignore
-        if rating in [-1, None]:
-            continue
-        elif rating in [0, 1]:
-            y = 0
-        elif rating in [2, 3]:
-            y = 1
-        else:
-            continue
-
-        rows.append({"text": text, "label": y})
-
-    df = pd.DataFrame(rows)
-    print("Loaded FakeHealth from", folder_path, ":", df.shape)
-    return df
+    return pd.DataFrame(columns=["text", "label"])
 
 
 def main():
-    print("=== Merging SciFact + FakeHealth Datasets ===")
+    fakehealth = load_fakehealth()
+    scifact = load_scifact()
+    kinit = load_kinit()
 
-    # SciFact directory
-    scifact_dir = os.path.join(BASE, "SciFact")
+    print("FakeHealth:", fakehealth.shape)
+    print("SciFact:", scifact.shape)
+    print("KINIT:", kinit.shape)
 
-    # FakeHealth review JSONs
-    reviews_release_path = os.path.join(BASE, "FakeHealth", "reviews", "HealthRelease.json")
-    reviews_story_path = os.path.join(BASE, "FakeHealth", "reviews", "HealthStory.json")
+    merged = pd.concat([fakehealth, scifact, kinit], ignore_index=True)
 
-    release_ratings = load_fakehealth_reviews(reviews_release_path)
-    story_ratings = load_fakehealth_reviews(reviews_story_path)
+    merged = merged.dropna()
+    merged = merged.drop_duplicates(subset=["text"])
 
-    # FakeHealth article directories
-    release_articles_path = os.path.join(BASE, "FakeHealth", "content", "HealthRelease")
-    story_articles_path = os.path.join(BASE, "FakeHealth", "content", "HealthStory")
-
-    # Load datasets
-    df_scifact = load_scifact(scifact_dir)
-    df_release = load_fakehealth_articles(release_articles_path, release_ratings)
-    df_story = load_fakehealth_articles(story_articles_path, story_ratings)
-
-    # Merge all datasets
-    merged = pd.concat([df_scifact, df_release, df_story], ignore_index=True)
-    print("Final merged dataset shape:", merged.shape)
-
-    # Save result
-    out_path = os.path.join(BASE, "merged_health_dataset.csv")
+    out_path = os.path.join(DATASETS_DIR, "merged_final_dataset.csv")
     merged.to_csv(out_path, index=False)
 
-    print("Merged dataset saved to:", out_path)
+    print("Final merged dataset saved to:", out_path)
+    print("Shape:", merged.shape)
 
 
 if __name__ == "__main__":
