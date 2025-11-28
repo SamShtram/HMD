@@ -1,23 +1,89 @@
-import pandas as pd
+import os
 import re
+import pandas as pd
 
-input_path = "../datasets/merged_final_dataset.csv"
-output_path = "../datasets/cleaned_final_dataset.csv"
-
-df = pd.read_csv(input_path)
-
+# --------------- CLEANER ---------------
 def clean_text(text):
-    if not isinstance(text, str):
-        return ""
-    text = re.sub(r"<.*?>", " ", text)
-    text = re.sub(r"&[a-z]+;", " ", text)
-    text = re.sub(r'[^A-Za-z0-9.,!?;:\'"()/%+\s-]', ' ', text)
+    # Normalize spaces
     text = re.sub(r"\s+", " ", text)
+    
+    # Remove HTML artifacts
+    text = re.sub(r"<.*?>", " ", text)
+
+    # Remove scripts/styles
+    text = re.sub(r"(?s)<script.*?</script>", " ", text)
+    text = re.sub(r"(?s)<style.*?</style>", " ", text)
+
+    # Remove cookie/legal repeated text
+    text = re.sub(r"(cookie|privacy|advertisement|subscribe).*?", "", text, flags=re.I)
+
+    # Remove escape characters
+    text = re.sub(r"\\n", " ", text)
+    text = re.sub(r"\\t", " ", text)
+
     return text.strip()
 
-df["text"] = df["text"].astype(str).apply(clean_text)
+# --------------- CHUNKER ---------------
+def chunk_text(text, max_words=256, overlap=50):
+    words = text.split()
+    chunks = []
+    start = 0
 
+    while start < len(words):
+        end = start + max_words
+        chunk = " ".join(words[start:end])
+        chunks.append(chunk)
+        start = end - overlap
 
-df.to_csv(output_path, index=False)
-print("Cleaned saved to:", output_path)
-print("Final shape:", df.shape)
+    return chunks
+
+# --------------- MERGE CREDIBLE + FAKE ---------------
+def process_folder(folder_path, label):
+    rows = []
+    files = os.listdir(folder_path)
+
+    for file_name in files:
+        full_path = os.path.join(folder_path, file_name)
+
+        # Skip non-text files
+        if not full_path.endswith(".txt"):
+            continue
+
+        # Read file
+        try:
+            with open(full_path, "r", encoding="utf-8") as f:
+                text = f.read()
+        except:
+            continue
+
+        # Clean
+        cleaned = clean_text(text)
+
+        # Chunk
+        chunks = chunk_text(cleaned)
+
+        # Add rows
+        for chunk in chunks:
+            rows.append({"text": chunk, "label": label})
+
+    return rows
+
+# ---------- PATHS (Update if needed) ----------
+credible_folder = "datasets/credible_raw"
+fake_folder      = "datasets/fake_raw"
+
+# ---------- BUILD DATAFRAME ----------
+rows = []
+
+print("Processing credible articles...")
+rows += process_folder(credible_folder, label=1)
+
+print("Processing fake articles...")
+rows += process_folder(fake_folder, label=0)
+
+df = pd.DataFrame(rows)
+df.to_csv("datasets/cleaned_final_dataset.csv", index=False)
+
+print("DONE!")
+print("Total samples:", len(df))
+print(df.head())

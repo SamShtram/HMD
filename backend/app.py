@@ -1,45 +1,109 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification
 import torch
-import trafilatura
-
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import uvicorn
+import requests
+from bs4 import BeautifulSoup
+import re
+import numpy as np
 
 app = FastAPI()
 
-model_path = "./distilbert_model"
-tokenizer = DistilBertTokenizerFast.from_pretrained(model_path)
-model = DistilBertForSequenceClassification.from_pretrained(model_path)
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model.to(device)
+MODEL_PATH = "./model_output/best_model"
 
+tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
+model.eval()
+
+LABELS = {0: "Not Credible", 1: "Credible"}
+
+
+# -----------------------------
+# CLEAN TEXT
+# -----------------------------
+def clean_text(text: str) -> str:
+    text = text.replace("\n", " ")
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+# -----------------------------
+# SIMPLE SCRAPER (NO NEWSPAPER)
+# -----------------------------
+def extract_text_from_url(url: str) -> str:
+    try:
+        headers = {"User-Agent": "Mozilla/5.0"}
+        res = requests.get(url, timeout=10, headers=headers)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Request failed: {e}")
+
+    if res.status_code != 200:
+        raise HTTPException(status_code=400, detail="Website returned non-200 status")
+
+    soup = BeautifulSoup(res.text, "html.parser")
+
+    # Remove scripts, styles, nav, footer, etc.
+    for tag in soup(["script", "style", "header", "footer", "nav", "aside", "form"]):
+        tag.extract()
+
+    # Extract all text from paragraphs
+    paragraphs = [p.get_text(" ", strip=True) for p in soup.find_all("p")]
+    text = " ".join(paragraphs)
+
+    cleaned = clean_text(text)
+
+    if len(cleaned.split()) < 30:
+        raise HTTPException(status_code=400, detail="Not enough readable text extracted")
+
+    return cleaned
+
+
+# -----------------------------
+# REQUEST MODEL
+# -----------------------------
 class URLInput(BaseModel):
     url: str
 
-def extract_text(url: str):
-    downloaded = trafilatura.fetch_url(url)
-    text = trafilatura.extract(downloaded)
-    return text
 
+# -----------------------------
+# PREDICT ENDPOINT
+# -----------------------------
 @app.post("/predict_url")
-def predict_url(data: URLInput):
-    text = extract_text(data.url)
-    enc = tokenizer(text, truncation=True, padding="max_length", max_length=256, return_tensors="pt")
-    enc = {k: v.to(device) for k, v in enc.items()}
-    logits = model(**enc).logits
-    probs = torch.softmax(logits, dim=1).cpu().detach().numpy()[0]
+def predict_url(input: URLInput):
+    url = input.url
 
-    pred_idx = int(probs.argmax())
-    label = "Credible" if pred_idx == 1 else "Not Credible"
-    confidence = float(probs[pred_idx])
+    text = extract_text_from_url(url)
+
+    # Tokenize
+    inputs = tokenizer(
+        text,
+        truncation=True,
+        max_length=512,
+        padding="max_length",
+        return_tensors="pt"
+    )
+
+    # Predict
+    with torch.no_grad():
+        outputs = model(**inputs)
+        logits = outputs.logits
+        probs = torch.softmax(logits, dim=1).cpu().numpy()[0]
+
+    pred = int(np.argmax(probs))
+    confidence = float(probs[pred])
 
     return {
-        "label": label,
+        "url": url,
+        "label": LABELS[pred],
         "confidence": confidence,
-        "extracted_chars": len(text)
+        "raw_scores": probs.tolist(),
+        "preview": text[:400]
     }
 
 
+# -----------------------------
+# RUN SERVER
+# -----------------------------
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
