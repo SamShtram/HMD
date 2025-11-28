@@ -68,21 +68,34 @@ def load_kinit(kinit_dir):
     claims_path = os.path.join(kinit_dir, "claims.csv")
     fc_path = os.path.join(kinit_dir, "fact_checking_articles.csv")
 
-    if not os.path.exists(claims_path):
-        print("KINIT not found.")
+    rows = []
+
+    if os.path.exists(claims_path):
+        df_claims = pd.read_csv(claims_path)
+        df_claims["text"] = df_claims["title"].astype(str) + " " + df_claims["body"].astype(str)
+        df_claims["label"] = 0
+        rows.append(df_claims[["text", "label"]])
+
+    if os.path.exists(fc_path):
+        df_fc = pd.read_csv(fc_path)
+        df_fc["text"] = df_fc["statement"].astype(str) + " " + df_fc["description"].astype(str)
+
+        def map_rating(x):
+            x = str(x).lower()
+            if x in ["true", "mostly true", "partly true"]:
+                return 1
+            if x in ["false", "misleading", "fake"]:
+                return 0
+            return None
+
+        df_fc["label"] = df_fc["rating"].apply(map_rating)
+        df_fc = df_fc.dropna(subset=["label"])
+        rows.append(df_fc[["text", "label"]])
+
+    if len(rows) == 0:
         return pd.DataFrame(columns=["text", "label"])
 
-    df_claims = pd.read_csv(claims_path)
-    df_fc = pd.read_csv(fc_path) if os.path.exists(fc_path) else pd.DataFrame(columns=["id"])
-
-    # text source: claim body
-    df_claims["text"] = df_claims["claim"]
-    df_claims["label"] = df_claims["verified"].apply(lambda x: 1 if x == "true" else 0)
-
-    # optional fact-checking articles may override labels (not required)
-    merged = df_claims[["text", "label"]]
-
-    return merged.dropna()
+    return pd.concat(rows, ignore_index=True)
 
 
 
