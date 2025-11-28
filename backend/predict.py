@@ -1,13 +1,15 @@
 from transformers import pipeline
 
+MODEL_PATH = r"C:\Users\samms\HMD\backend\distilbert_model"
+
 classifier = pipeline(
     "text-classification",
-    model="./model",
-    tokenizer="./model",
-    return_all_scores=True
+    model=MODEL_PATH,
+    tokenizer=MODEL_PATH,
+    local_files_only=True
 )
 
-while True:
-    text = input("\nEnter text: ")
-    result = classifier(text)
-    print(result)
+text = "Vaccines cause autism."
+result = classifier(text)
+
+print(result)
