@@ -1,4 +1,5 @@
 import pandas as pd
+from datasets import Dataset
 import torch
 from transformers import (
     DistilBertTokenizerFast,
@@ -6,24 +7,24 @@ from transformers import (
     TrainingArguments,
     Trainer
 )
-from datasets import Dataset
 
+# Select device
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("Using device:", device)
 
 # Load cleaned dataset
 df = pd.read_csv("../datasets/cleaned_health_dataset.csv")
 
-# HF datasets require column name 'label'
-df = df.rename(columns={"label": "labels"})
+# HuggingFace expects column name `label`
+df = df.rename(columns={"labels": "label"})
 
 # Convert to HF Dataset
 dataset = Dataset.from_pandas(df)
 
 # Train / test split
-dataset = dataset.train_test_split(test_size=0.15)
-train_ds = dataset["train"]
-test_ds = dataset["test"]
+dataset_split = dataset.train_test_split(test_size=0.15)
+train_ds = dataset_split["train"]
+test_ds = dataset_split["test"]
 
 # Load tokenizer
 tokenizer = DistilBertTokenizerFast.from_pretrained("distilbert-base-uncased")
@@ -40,8 +41,8 @@ train_ds = train_ds.map(tokenize, batched=True)
 test_ds = test_ds.map(tokenize, batched=True)
 
 # Set format for PyTorch
-train_ds.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
-test_ds.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+train_ds.set_format(type="torch", columns=["input_ids", "attention_mask", "label"])
+test_ds.set_format(type="torch", columns=["input_ids", "attention_mask", "label"])
 
 # Load model
 model = DistilBertForSequenceClassification.from_pretrained(
@@ -49,27 +50,21 @@ model = DistilBertForSequenceClassification.from_pretrained(
     num_labels=2
 ).to(device)
 
-# Training args compatible with current Transformers
+# Correct argument names for Transformers 4.57.3
 training_args = TrainingArguments(
-    output_dir="./distilbert_output",
-    evaluation_strategy="epoch",
-    save_strategy="epoch",
+    output_dir="./distilbert_model",
+    eval_strategy="epoch",          # <-- NEW NAME
+    save_strategy="epoch",          # <-- NEW NAME
     logging_strategy="steps",
     logging_steps=50,
-
+    learning_rate=5e-5,
     per_device_train_batch_size=8,
     per_device_eval_batch_size=8,
-
     num_train_epochs=3,
-    warmup_steps=100,
     weight_decay=0.01,
-
-    load_best_model_at_end=True,
-
-    fp16=True,   # Mixed precision (only works on GPU)
+    load_best_model_at_end=True
 )
 
-# Trainer
 trainer = Trainer(
     model=model,
     args=training_args,
@@ -78,10 +73,9 @@ trainer = Trainer(
 )
 
 trainer.train()
+eval_results = trainer.evaluate()
+print(eval_results)
 
-# Save model + tokenizer
-save_dir = "./model/distilbert"
-trainer.model.save_pretrained(save_dir)
-tokenizer.save_pretrained(save_dir)
-
-print("\nTraining complete. Model saved to:", save_dir)
+model.save_pretrained("./distilbert_model")
+tokenizer.save_pretrained("./distilbert_model")
+print("DistilBERT model saved.")
