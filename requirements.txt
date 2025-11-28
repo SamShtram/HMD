@@ -1,0 +1,27 @@
+# Core
+pandas==2.2.2
+numpy==1.26.4
+
+# ML + NLP
+scikit-learn==1.5.1
+nltk==3.9.1
+regex==2024.5.15
+
+# HuggingFace ecosystem (requires PyTorch)
+transformers==4.41.2
+datasets==2.19.1
+tokenizers==0.19.1
+sentencepiece==0.2.0
+
+# PyTorch CPU (safe default)
+torch==2.3.0
+torchaudio==2.3.0
+torchvision==0.18.0
+
+# FastAPI backend
+fastapi==0.111.0
+uvicorn==0.30.1
+
+# Utilities
+joblib==1.4.2
+tqdm==4.66.4
