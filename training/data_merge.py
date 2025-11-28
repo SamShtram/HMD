@@ -90,24 +90,40 @@ def load_kinit(kinit_dir):
 
 
 def main():
-    fakehealth = load_fakehealth()
-    scifact = load_scifact()
-    kinit = load_kinit()
+    print("\n=== Merging SciFact + FakeHealth + KINIT ===")
 
-    print("FakeHealth:", fakehealth.shape)
-    print("SciFact:", scifact.shape)
-    print("KINIT:", kinit.shape)
+    # Paths
+    fakehealth_dir = os.path.join(DATASETS_DIR, "FakeHealth/content")
+    healthrelease_dir = os.path.join(fakehealth_dir, "HealthRelease")
+    healthstory_dir = os.path.join(fakehealth_dir, "HealthStory")
 
-    merged = pd.concat([fakehealth, scifact, kinit], ignore_index=True)
+    scifact_dir = os.path.join(DATASETS_DIR, "SciFact")
 
-    merged = merged.dropna()
-    merged = merged.drop_duplicates(subset=["text"])
+    # IMPORTANT: your folder is named KinitData
+    kinit_dir = os.path.join(DATASETS_DIR, "KinitData")
 
-    out_path = os.path.join(DATASETS_DIR, "merged_final_dataset.csv")
-    merged.to_csv(out_path, index=False)
+    # Load datasets
+    scifact = load_scifact(scifact_dir)
+    print(f"SciFact: {scifact.shape}")
 
-    print("Final merged dataset saved to:", out_path)
-    print("Shape:", merged.shape)
+    fake_hr = load_fakehealth_folder(healthrelease_dir)
+    fake_hs = load_fakehealth_folder(healthstory_dir)
+    fake = pd.concat([fake_hr, fake_hs], ignore_index=True)
+    print(f"FakeHealth: {fake.shape}")
+
+    # Load KINIT (new data source)
+    kinit = load_kinit(kinit_dir)
+    print(f"KINIT: {kinit.shape}")
+
+    # Merge all datasets together
+    full_df = pd.concat([scifact, fake, kinit], ignore_index=True)
+    print(f"\nFinal merged dataset shape: {full_df.shape}")
+
+    # Save final CSV
+    output_path = os.path.join(DATASETS_DIR, "merged_final_dataset.csv")
+    full_df.to_csv(output_path, index=False)
+    print(f"Final merged dataset saved to: {output_path}")
+
 
 
 if __name__ == "__main__":
