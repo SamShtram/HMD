@@ -16,7 +16,7 @@ def clean_text(text):
     return text.strip()
 
 df["text"] = df["text"].astype(str).apply(clean_text)
-df = df[df["text"].str.len() > 60]
+
 
 df.to_csv(output_path, index=False)
 print("Cleaned saved to:", output_path)
