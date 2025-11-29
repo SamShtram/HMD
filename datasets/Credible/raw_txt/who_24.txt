@@ -1,0 +1,11 @@
+Health Inequality Monitor
+Explore health inequality monitoring evidence, tools, resources and training
+Health Inequality Data Repository
+Disaggregated data – which show how health or other aspects of life are experienced by people of different ages, economic status, education levels, place of residence, sex, and other characteristics – are a vital part of advancing equity.
+Disaggregated data can serve as an evidence base for equity-oriented policies, programmes and practices that aim to close existing gaps and achieve good health and well-being for all.
+The Health Inequality Data Repository contains datasets of disaggregated data covering diverse topics and dimensions of inequality, from a variety of publicly available data sources. It aims to make disaggregated data more accessible and navigable to diverse global audiences.
+Please note that some datasets are from external published sources and are therefore not WHO official estimates. Please refer to the Indicator Metadata for more information about the data.
+More information about the Health Inequality Data Repository is available here.
+Access datasets
+Download the data in Excel (.xlsx) format using the links in the sections below or access the data programmatically using an API.
+Go to section:

@@ -1,0 +1,29 @@
+NIH Standardized Organoid Modeling (SOM) Center
+Overview
+Organoids are small, lab-grown models that mimic the structure and function of human organs and are transforming how researchers study disease and test treatments. Yet most organoid models today are created through trial-and-error, making them difficult to reproduce across labs and slowing their adoption across research and industry. The Standardized Organoid Modeling (SOM) Center will be the nation’s first fully integrated platform dedicated to developing standardized organoid-based New Approach Methodologies (NAMs). The initiative is being launched by the NIH Division of Program Coordination, Planning, and Strategic Initiatives, in collaboration with many other NIH Institutes, Centers, and Offices, including the National Cancer Institute (NCI), the National Institute of Allergy and Infectious Diseases’ (NIAID) Research Technologies Branch and Center for Human Immunology, Infection and Autoimmunity, the National Human Genome Research Institute (NHGRI) the National Center for Advancing Translational Sciences (NCATS), and the Office of Research on Women’s Health, with plans to expand partnerships across many other NIH institutes and centers and the broader scientific community.
+The SOM Center is supported by special authorities through the Frederick National Laboratory for Cancer Research (FNLCR), the nation’s only Federally Funded Research and Development Center (FFRDC) dedicated exclusively to biomedical research. Using resources from the FNLCR, NCI will direct the in vitro organoid efforts for the SOM Center, while NIAID’s Division of Intramural Research will drive in silico development through the Research Technologies Office, applying advanced machine learning (ML) and artificial intelligence (AI) tools to enable real-time optimization of organoid protocols.
+Mission
+The SOM Center aims to serve as a neutral scientific hub for standardization, developing organoids that are reproducible, reliable, and easily accessible for medicinal and biological research. By establishing protocols tested directly on models that replicate the structure and function of human organs, the center will reduce reliance on animal testing, generate more precise results, and minimize variability in outcomes.
+A First-of-Its-Kind Research
+At the heart of the SOM Center is a powerful combination of:
+- Artificial Intelligence (AI) and Machine Learning (ML) to mine scientific literature and experimental data to optimize protocols in real time.
+- Advanced Robotics and Imaging to scale organoid production and analyze over 100,000 samples daily.
+- Heterogeneous Human Cell Sources to ensure organoids reflect real-world biological differences, including age, sex, and genetic ancestry.
+- Open-Access Digital and Physical Repositories so scientists can access standardized protocols, data, and living organoids everywhere.
+The center will initially focus on organoid models of the liver, lung, heart, and intestine, with plans to expand into the brain, thymus, and other disease-specific models.
+The SOM Center is designed to serve a wide range of users:
+- Scientists and Researchers across academic institutions, industry, and government.
+- Regulatory Agencies (e.g., FDA) looking for reliable, reproducible human-relevant models for safety assessments.
+- Clinicians and Precision Medicine Experts seeking patient-specific models.
+The Broader Scientific Community, including intramural (within NIH) and extramural (outside NIH) researchers, industry partners, and educators.
+Policies
+To ensure consistency, transparency, and broad scientific benefit, the following policies will guide SOM Center access and use:
+- Open Science Policy: All protocols, data, and models will be openly shared via FAIR principles to maximize community benefit and reuse.
+- Affordable Access: Physical organoids and digital resources will be made available at minimal cost to NIH-funded and other qualified investigators.
+- Regulatory Alignment: All models and data will be validated using standards, e.g. those recognized by the U.S. Food and Drug Administration, the Organization for Economic Co-operation and Development and Interagency Coordinating Committee on the Validation of Alternative Methods, to ensure their suitability in regulatory submissions, including Investigational New Drug (IND) filings.
+- Ethical and Inclusive Use: The SOM Center prioritizes heterogeneity in human cell lines (age, sex, ancestry), community engagement, and bioethical oversight to ensure models are representative and equitable.
+- Training and Use Compliance: Users must complete relevant training modules and adhere to standard operating procedures to ensure reproducibility and ethical use.
+- Data Contribution Encouraged: Collaborating researchers are encouraged to contribute their results (including negative data) to enhance collective learning and protocol refinement.
+Contact
+Affordable access to protocols and organoids will be available for qualified researchers nationally. Contact somcenter@nih.gov for more information.
+This page last reviewed on

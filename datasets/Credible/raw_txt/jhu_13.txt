@@ -1,0 +1,22 @@
+Departments
+The largest institution of its kind in the world, the Bloomberg School is home to 10 departments that offer faculty and students the flexibility to focus on a variety of public health disciplines.
+Biochemistry and Molecular Biology
+A founding department of the Bloomberg School, faculty and students conduct research to discover and characterize fundamental biological processes relevant to health and disease.
+Biostatistics
+The first academic department of statistical science in the world, faculty prepare students to be on the cutting edge of data analysis and evidence-based decision-making.
+Environmental Health and Engineering
+Faculty and students discover and apply new knowledge critical to understanding and mitigating the impact of the natural, built, and social environments on human health.
+Epidemiology
+The oldest department of epidemiology in the world, students gain proficiency in study design, measurement, and inference to prevent and control disease in human populations.
+Health, Behavior and Society
+Faculty and students study the optimal ways to change human behavior to impact public health—from social policy and social environment to individual behavior change.
+Health Policy and Management
+Faculty empower tomorrow’s public health leaders, inspiring them to embrace today’s challenges to create change in fields like government and health care management.
+International Health
+As global leaders in health research and program implementation, faculty and students focus on saving lives in the most underserved populations around the world.
+Mental Health
+In the only department dedicated to mental health in a school of public health, faculty and students advance understanding and prevention of mental and behavioral disorders.
+Molecular Microbiology and Immunology
+Faculty and students focus on understanding basic biological processes underlying the major infectious diseases affecting public health, including malaria, tuberculosis, and AIDS.
+Population, Family and Reproductive Health
+Grounded in a life course framework, faculty and students develop skills in areas like population sciences, biologic markers and behavioral science, program evaluation, and advocacy.
