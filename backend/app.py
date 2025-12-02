@@ -14,10 +14,10 @@ MODEL_PATH = "./model_output/best_model"
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
 model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
+
 model.eval()
 
 LABELS = {0: "Not Credible", 1: "Credible"}
-
 
 # -----------------------------
 # CLEAN TEXT
