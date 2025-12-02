@@ -1,6 +1,6 @@
 
 venv/
-hmd_env/
+hmd_venv/
 __pycache__/
 *.pyc
 backend/distilbert_model/

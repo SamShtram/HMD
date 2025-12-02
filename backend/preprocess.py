@@ -68,7 +68,7 @@ def process_folder(folder_path, label):
 
     return rows
 
-# ---------- PATHS (Update if needed) ----------
+
 credible_folder = "datasets/credible_raw"
 fake_folder      = "datasets/fake_raw"
 
